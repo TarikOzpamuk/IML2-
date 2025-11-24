@@ -21,7 +21,7 @@ The polynomial and RBF kernels perform best under default settings, while the si
 
 ## 2. Hyperparameter Tuning (k‑fold CV)
 
-A grid search was carried out for each kernel:
+We did a grid search for each kernel:
 
 ### **Linear Kernel**
 
@@ -73,43 +73,20 @@ Increasing `C` makes the decision boundary harder, while decreasing `gamma` redu
 
 Hyperparameter tuning does not improve performance.
 
----
-
-## 3. Summary Table
-
-| Kernel  | Best Parameters                    | CV Score | Test Accuracy | Default Accuracy | Improvement |
-|---------|------------------------------------|----------|---------------|------------------|-------------|
-| Linear  | `C=0.1`                            | 0.9785   | 0.9796        | 0.9796           | +0.0000     |
-| Poly    | `C=0.1`, `degree=3`, `gamma=auto` | 0.9865   | 0.9889        | 0.9889           | +0.0000     |
-| RBF     | `C=10`, `gamma=0.001`              | 0.9920   | **0.9907**    | 0.9870           | **+0.0037** |
-| Sigmoid | `C=1`, `gamma=scale`                | 0.9069   | 0.9074        | 0.9074           | +0.0000     |
-
----
-
-## 4. Conclusions
-
-- The **polynomial** and **RBF** kernels achieve the best test performance overall.
-- **Only the RBF kernel benefits from tuning**, improving accuracy by +0.0037.
-- The **sigmoid kernel consistently underperforms**, regardless of hyperparameters.
-- For this dataset, **RBF with tuned parameters (`C=10`, `gamma=0.001`)** is the best-performing model.
-
-
 # Subtask 2
 
 ## 1. Motivation and Idea Behind the Kernel
 
 The digits dataset consists of **8×8 grayscale images**. Each image has a spatial structure: central pixels are usually more informative while outer pixels contain mostly background (black).
 
-A standard RBF kernel treats all features equally. To exploit the spatial structure, we designed an **anisotropic RBF kernel**, allowing different feature dimensions to contribute differently to the distance measure.
+A standard RBF kernel treats all features equally. To exploit the spatial structure, we designed an **anisotropic RBF kernel**, allowing different features to contribute differently to the distance measure.
 
-The kernel modifies the RBF formula by applying a feature-specific weight vector (A):
+The kernel modifies the RBF by applying a weight vector (A):
 
 $$K(x,y) = \exp\left(-\sum_i A_i (x_i - y_i)^2\right)$$
 
-- Mid-range PCA components (which capture important digit structure) receive *higher weight*.
-- Others receive a smaller baseline weight.
-
-This creates a similarity measure adapted to the structure of digit images.
+- Mid-range PCA components receive *higher weight*.
+- Others receive a smaller weight.
 
 ## 2. Implementation
 
@@ -137,21 +114,6 @@ Because this is a Gaussian kernel with a diagonal precision matrix, it is PSD an
 - Cross-validation score: **0.9928**
 - Test accuracy: **0.9926**
 
-### Confusion Matrix
-
-```
-[[53  0  0  0  0  0  0  0  0  0]
- [ 0 50  0  0  0  0  0  0  0  0]
- [ 0  0 47  0  0  0  0  0  0  0]
- [ 0  0  0 53  0  1  0  0  0  0]
- [ 0  0  0  0 60  0  0  0  0  0]
- [ 0  0  0  0  0 66  0  0  0  0]
- [ 0  0  0  0  0  0 53  0  0  0]
- [ 0  0  0  0  0  0  0 54  0  1]
- [ 0  0  0  0  0  0  0  0 43  0]
- [ 0  0  0  1  0  0  0  1  0 57]]
-```
-
 ### Comparison to Previous Kernels
 
 | Kernel                     | Best Accuracy |
@@ -172,3 +134,70 @@ The kernel is valid because:
 - Sums and products of PSD kernels remain PSD.
 
 Thus, the anisotropic RBF is **a valid PSD kernel**.
+
+# Subtask 3
+## 1. How the Confusion Matrix Is Built
+
+We manually compute the matrix as follows:
+
+1. Create a zero matrix of size `K x K`, with `K = 10` classes.
+2. For each test sample, increase the entry at `(true_label, predicted_label)` by one.
+
+Rows correspond to the true class; columns correspond to the predicted class.
+
+---
+
+## 2. Results
+
+### 2.1 Best SVM with standard RBF kernel
+
+**Confusion matrix**
+
+```
+[[53  0  0  0  0  0  0  0  0  0]
+ [ 0 50  0  0  0  0  0  0  0  0]
+ [ 0  0 47  0  0  0  0  0  0  0]
+ [ 0  0  0 52  0  1  0  0  1  0]
+ [ 0  0  0  0 60  0  0  0  0  0]
+ [ 0  0  0  0  0 66  0  0  0  0]
+ [ 0  0  0  0  0  0 53  0  0  0]
+ [ 0  0  0  0  0  0  0 54  0  1]
+ [ 0  0  0  0  0  0  0  0 43  0]
+ [ 0  0  0  1  0  0  0  1  0 57]]
+```
+
+- Test samples: `540`
+- Correct predictions (diagonal sum): `535`
+- Accuracy: `0.9907` (99.07%)
+
+### 2.2 Best SVM with custom anisotropic RBF kernel
+
+**Confusion matrix**
+
+```
+[[53  0  0  0  0  0  0  0  0  0]
+ [ 0 50  0  0  0  0  0  0  0  0]
+ [ 0  0 47  0  0  0  0  0  0  0]
+ [ 0  0  0 53  0  1  0  0  0  0]
+ [ 0  0  0  0 60  0  0  0  0  0]
+ [ 0  0  0  0  0 66  0  0  0  0]
+ [ 0  0  0  0  0  0 53  0  0  0]
+ [ 0  0  0  0  0  0  0 54  0  1]
+ [ 0  0  0  0  0  0  0  0 43  0]
+ [ 0  0  0  1  0  0  0  1  0 57]]
+```
+
+- Test samples: `540`
+- Correct predictions: `536`
+- Accuracy: `0.9926` (99.26%)
+
+The anisotropic kernel correctly classifies one additional digit compared to the tuned RBF model.
+
+---
+
+## 3. Takeaways
+
+- Both matrices are almost perfectly diagonal, meaning nearly all digits are classified correctly.
+- The standard RBF kernel misclassifies digit `3` twice (as `5` and `8`); the anisotropic version fixes the `3 → 8` mistake.
+- Each model mislabels one digit `7` as `9`, and digit `9` is occasionally predicted as `3` or `7`.
+- Aside from the single recovered error, their error patterns are nearly identical.
